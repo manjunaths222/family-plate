@@ -107,6 +107,7 @@ export function buildWeeklyPrompt(input: GenerationInput): string {
     recentDishTitles,
     recentCuisines,
     onboardingText,
+    generationNotes,
   } = input;
 
   const cuisineRotation = buildCuisineRotation(
@@ -157,6 +158,11 @@ export function buildWeeklyPrompt(input: GenerationInput): string {
     ? `\n\n## Original household description (use for nuance and context)\n"${onboardingText}"`
     : '';
 
+  // Free-form standing instructions from the planner — highest priority after hard constraints
+  const notesBlock = generationNotes?.trim()
+    ? `\n\n## Standing instructions (MUST follow every week)\n${generationNotes}`
+    : '';
+
   return `
 Generate the weekly meal plan for week ${weekId} (starting ${weekStart}).
 
@@ -181,6 +187,7 @@ ${busyBlock}
 ${budgetNote}
 ${historyBlock}
 ${onboardingBlock}
+${notesBlock}
 
 ## Output
 Return a single JSON object matching the WeekSchema exactly.

@@ -48,11 +48,13 @@ export default function SettingsPage() {
   const { user, signOut }  = useAuth();
   const { theme, setTheme, themes, themeLabels } = useTheme();
 
-  const [section,   setSection]   = useState<Section>(null);
-  const [members,   setMembers]   = useState<FamilyMember[]>([]);
-  const [cuisines,  setCuisines]  = useState<string[]>([]);
-  const [saving,    setSaving]    = useState(false);
-  const [loadingFam, setLoadingFam] = useState(false);
+  const [section,       setSection]       = useState<Section>(null);
+  const [members,       setMembers]       = useState<FamilyMember[]>([]);
+  const [cuisines,      setCuisines]      = useState<string[]>([]);
+  const [notes,         setNotes]         = useState('');
+  const [saving,        setSaving]        = useState(false);
+  const [savingNotes,   setSavingNotes]   = useState(false);
+  const [loadingFam,    setLoadingFam]    = useState(false);
 
   // Load family + settings on mount
   useEffect(() => {
@@ -65,6 +67,7 @@ export default function SettingsPage() {
     ]).then(([famSnap, userSnap]) => {
       setMembers(famSnap.docs.map(d => d.data() as FamilyMember));
       setCuisines(userSnap.data()?.settings?.defaultCuisines ?? []);
+      setNotes(userSnap.data()?.generationNotes ?? '');
     }).finally(() => setLoadingFam(false));
   }, [user]);
 
@@ -93,6 +96,19 @@ export default function SettingsPage() {
       toast.error('Save failed. Try again.');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function saveNotes() {
+    if (!user) return;
+    setSavingNotes(true);
+    try {
+      await updateDoc(doc(db, `users/${user.uid}`), { generationNotes: notes });
+      toast.success('Instructions saved — applied to next generation.');
+    } catch {
+      toast.error('Save failed.');
+    } finally {
+      setSavingNotes(false);
     }
   }
 
@@ -296,6 +312,32 @@ export default function SettingsPage() {
             </button>
           ))}
         </div>
+      </section>
+
+      {/* Generation notes */}
+      <section>
+        <h2 className="text-xs font-semibold text-on-surface-muted uppercase tracking-wide mb-1">
+          Standing Instructions
+        </h2>
+        <p className="text-xs text-on-surface-muted mb-3">
+          Anything typed here is injected into <em>every</em> generation prompt — no
+          re-onboarding needed. Examples: "evenings to be kept very light", "no
+          cooking on Fridays", "kids hate anything green".
+        </p>
+        <textarea
+          value={notes}
+          onChange={e => setNotes(e.target.value)}
+          rows={4}
+          placeholder="e.g. Evenings to be kept very light. No cooking on Fridays — quick 15-min meals. Husband loves spicy food."
+          className="w-full rounded-2xl bg-surface-raised border border-border p-3 text-on-surface text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand"
+        />
+        <button
+          onClick={saveNotes}
+          disabled={savingNotes}
+          className="mt-2 flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-white text-sm font-semibold disabled:opacity-50"
+        >
+          <Save size={14} /> {savingNotes ? 'Saving…' : 'Save Instructions'}
+        </button>
       </section>
 
       {/* Sign out */}

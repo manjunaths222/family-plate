@@ -68,6 +68,7 @@ export interface GenerationInput {
   recentDishTitles:  string[];       // from last 4 weeks — do not repeat
   recentCuisines:    string[];       // cuisines used recently
   onboardingText?:   string;         // original free-text household description
+  generationNotes?:  string;         // ongoing free-text instructions ("evenings keep light")
 }
 
 // ── Grocery ──────────────────────────────────────────────────────────────────

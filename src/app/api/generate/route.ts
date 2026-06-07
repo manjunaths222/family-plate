@@ -75,6 +75,7 @@ export async function POST(request: Request) {
     recentDishTitles:  [],
     recentCuisines:    [],
     onboardingText,
+    generationNotes:   (userData.generationNotes as string | undefined) ?? '',
   };
 
   try {
