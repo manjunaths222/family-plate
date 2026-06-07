@@ -4,19 +4,11 @@
  * The model is instructed to respect constraints, but we NEVER rely solely
  * on the model for allergy safety. This module runs after generateObject()
  * and verifies / flags violations in code.
- *
- * Strategy:
- *   1. For each slot, check every ingredient against each family member's
- *      allergy list (case-insensitive substring match).
- *   2. If a violation is found, populate allergenFlags and throw so the
- *      caller can retry or surface a graceful error.
- *   3. For non-allergy soft flags (spice, texture), add to safetyFlags
- *      without throwing — they're warnings, not blockers.
  */
 import type { WeekPlan, Slot } from './schema';
 import type { FamilyMember } from '@/types';
 
-// Expanded allergen synonym map — catches common label variations
+// Expanded allergen synonym map
 const ALLERGEN_SYNONYMS: Record<string, string[]> = {
   peanut:    ['peanut', 'groundnut', 'arachis'],
   treenut:   ['almond', 'cashew', 'walnut', 'pecan', 'pistachio', 'hazelnut', 'macadamia', 'brazil nut', 'pine nut', 'nut'],
@@ -46,11 +38,12 @@ function ingredientContainsAllergen(ingredientName: string, allergenTerms: strin
   return allergenTerms.some(term => lower.includes(term));
 }
 
-// Vegan/vegetarian/halal/kosher ingredient checks (simplified heuristic)
-const MEAT_TERMS = ['chicken', 'beef', 'pork', 'lamb', 'mutton', 'goat', 'turkey', 'duck', 'veal', 'meat', 'bacon', 'ham', 'sausage', 'pepperoni', 'lard', 'gelatin'];
-const PORK_TERMS = ['pork', 'bacon', 'ham', 'lard', 'pig', 'prosciutto', 'pepperoni', 'salami'];
-const FISH_TERMS = ['fish', 'shrimp', 'prawn', 'crab', 'lobster', 'clam', 'oyster', 'mussel', 'scallop', 'anchovy', 'tuna', 'salmon', 'cod'];
-const ANIMAL_TERMS = [...MEAT_TERMS, ...FISH_TERMS, 'egg', 'milk', 'dairy', 'cheese', 'butter', 'cream', 'yogurt', 'ghee', 'honey'];
+// All term lists declared before any function that references them
+const MEAT_TERMS      = ['chicken', 'beef', 'pork', 'lamb', 'mutton', 'goat', 'turkey', 'duck', 'veal', 'meat', 'bacon', 'ham', 'sausage', 'pepperoni', 'lard', 'gelatin'];
+const PORK_TERMS      = ['pork', 'bacon', 'ham', 'lard', 'pig', 'prosciutto', 'pepperoni', 'salami'];
+const FISH_TERMS      = ['fish', 'shrimp', 'prawn', 'crab', 'lobster', 'clam', 'oyster', 'mussel', 'scallop', 'anchovy', 'tuna', 'salmon', 'cod'];
+const SHELLFISH_TERMS = ['shrimp', 'prawn', 'crab', 'lobster', 'clam', 'oyster', 'mussel', 'scallop', 'shellfish'];
+const ANIMAL_TERMS    = [...MEAT_TERMS, ...FISH_TERMS, 'egg', 'milk', 'dairy', 'cheese', 'butter', 'cream', 'yogurt', 'ghee', 'honey'];
 
 function checkDietViolation(diet: string | null, ingredientName: string): string | null {
   if (!diet) return null;
@@ -64,7 +57,6 @@ function checkDietViolation(diet: string | null, ingredientName: string): string
       break;
     case 'halal':
       if (PORK_TERMS.some(t => lower.includes(t))) return `halal violation (pork): ${ingredientName}`;
-      // Alcohol
       if (['wine', 'beer', 'alcohol', 'spirits', 'brandy', 'rum'].some(t => lower.includes(t))) return `halal violation (alcohol): ${ingredientName}`;
       break;
     case 'kosher':
@@ -80,9 +72,6 @@ function checkDietViolation(diet: string | null, ingredientName: string): string
   return null;
 }
 
-const SHELLFISH_TERMS = ['shrimp', 'prawn', 'crab', 'lobster', 'clam', 'oyster', 'mussel', 'scallop', 'shellfish'];
-
-// ── Main export ─────────────────────────────────────────────────────────────
 export interface SafetyResult {
   plan: WeekPlan;
   violations: string[];
@@ -93,7 +82,7 @@ export function enforceHardConstraints(plan: WeekPlan, family: FamilyMember[]): 
 
   for (const day of plan.days) {
     for (const [mealKey, slot] of Object.entries(day.slots) as [string, Slot][]) {
-      const slotLabel = `${day.dayLabel} ${mealKey}`;
+      const slotLabel      = `${day.dayLabel} ${mealKey}`;
       const ingredientNames = slot.baseDish.ingredients.map(i => i.name);
 
       for (const member of family) {
@@ -104,32 +93,27 @@ export function enforceHardConstraints(plan: WeekPlan, family: FamilyMember[]): 
             if (ingredientContainsAllergen(ing, terms)) {
               const msg = `ALLERGY VIOLATION — ${slotLabel} | ${member.name} is allergic to ${allergen} but ingredient "${ing}" found`;
               violations.push(msg);
-              // Populate allergenFlags so the UI can surface it
-              if (!slot.allergenFlags.includes(allergen)) {
-                slot.allergenFlags.push(allergen);
-              }
+              if (!slot.allergenFlags.includes(allergen)) slot.allergenFlags.push(allergen);
             }
           }
         }
 
-        // 2. Dietary restriction check
+        // 2. Diet check
         if (member.hardConstraints.diet) {
           for (const ing of ingredientNames) {
             const violation = checkDietViolation(member.hardConstraints.diet, ing);
-            if (violation) {
-              violations.push(`DIET VIOLATION — ${slotLabel} | ${member.name}: ${violation}`);
-            }
+            if (violation) violations.push(`DIET VIOLATION — ${slotLabel} | ${member.name}: ${violation}`);
           }
         }
       }
 
-      // 3. Soft safety flags — spice and texture warnings (don't throw)
-      const kidsInFamily = family.filter(m => m.archetype === 'kid' || m.ageBand === 'child');
-      if (kidsInFamily.length > 0) {
-        const spiceIngredients = ['chilli', 'chili', 'cayenne', 'jalapeño', 'serrano', 'habanero'];
+      // 3. Soft spice warnings for kids
+      const kids = family.filter(m => m.archetype === 'kid' || m.ageBand === 'child');
+      if (kids.length > 0) {
+        const spicy = ['chilli', 'chili', 'cayenne', 'jalapeño', 'serrano', 'habanero'];
         for (const ing of ingredientNames) {
-          if (spiceIngredients.some(s => ing.toLowerCase().includes(s))) {
-            const flag = `High spice ingredient "${ing}" — reduce or omit for ${kidsInFamily.map(k => k.name).join(', ')}`;
+          if (spicy.some(s => ing.toLowerCase().includes(s))) {
+            const flag = `High spice ingredient "${ing}" — reduce or omit for ${kids.map(k => k.name).join(', ')}`;
             if (!slot.safetyFlags.includes(flag)) slot.safetyFlags.push(flag);
           }
         }
@@ -140,10 +124,6 @@ export function enforceHardConstraints(plan: WeekPlan, family: FamilyMember[]): 
   return { plan, violations };
 }
 
-/**
- * Deduplicate dish titles within the week.
- * Returns any titles that appear more than once.
- */
 export function findDuplicateDishes(plan: WeekPlan): string[] {
   const seen = new Map<string, number>();
   for (const day of plan.days) {

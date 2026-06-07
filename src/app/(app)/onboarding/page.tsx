@@ -119,7 +119,7 @@ export default function OnboardingPage() {
 
             {/* Example prompt chip */}
             <button
-              onClick={() => setText('My dad is diabetic, my 6-year-old daughter is picky, I'm trying to lose weight, and we love South Indian and Thai food.')}
+              onClick={() => setText(`My dad is diabetic, my 6-year-old daughter is picky, I'm trying to lose weight, and we love South Indian and Thai food.`)}
               className="mb-4 text-xs px-3 py-1.5 rounded-full bg-brand/10 text-brand hover:bg-brand/20 transition-colors"
             >
               💡 Try an example

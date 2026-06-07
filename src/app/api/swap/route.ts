@@ -16,7 +16,6 @@ import { verifyIdToken, adminDb } from '@/lib/firebase/admin';
 import { regenerateSlot } from '@/lib/ai/generateWeek';
 import { aggregateGrocery } from '@/lib/grocery';
 import type { FamilyMember, UserSettings } from '@/types';
-import type { Slot } from '@/lib/ai/schema';
 
 export const maxDuration = 60;
 
