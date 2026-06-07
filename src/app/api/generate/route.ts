@@ -52,6 +52,18 @@ export async function POST(request: Request) {
   const userData = userSnap.data() ?? {};
   const settings = (userData.settings ?? {}) as Partial<UserSettings>;
 
+  // Use the stored onboarding text if available; otherwise synthesise one from
+  // the existing family profiles so existing users also get rich prompt context.
+  const storedText = (userData.onboardingText as string | undefined) ?? '';
+  const onboardingText = storedText || family.map(m => {
+    const parts = [m.name, m.archetype.replace('_', ' ')];
+    if (m.hardConstraints.diet)               parts.push(m.hardConstraints.diet);
+    if (m.hardConstraints.allergies?.length)  parts.push(`allergic to ${m.hardConstraints.allergies.join(', ')}`);
+    if (m.softPrefs?.dislikes?.length)        parts.push(`dislikes ${m.softPrefs.dislikes.join(', ')}`);
+    if (m.goal)                               parts.push(m.goal);
+    return parts.join(', ');
+  }).join('; ') + (settings.defaultCuisines?.length ? `. Preferred cuisines: ${settings.defaultCuisines.join(', ')}.` : '');
+
   const input = {
     weekId:            body.weekId,
     weekNumber:        0, // set inside generateWeek
@@ -62,7 +74,7 @@ export async function POST(request: Request) {
     budget:            settings.budget ?? 'mid',
     recentDishTitles:  [],
     recentCuisines:    [],
-    onboardingText:    (userData.onboardingText as string | undefined) ?? '',
+    onboardingText,
   };
 
   try {
