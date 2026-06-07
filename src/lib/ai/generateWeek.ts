@@ -9,7 +9,7 @@
  */
 import { generateObject } from 'ai';
 import { getModel }       from './provider';
-import { WeekSchema }     from './schema';
+import { WeekSchema, SlotSchema } from './schema';
 import {
   WEEKLY_SYSTEM_PROMPT,
   buildWeeklyPrompt,
@@ -61,9 +61,10 @@ export async function generateWeek(input: GenerationInput, uid: string) {
 
   const enrichedInput: GenerationInput = {
     ...input,
-    weekNumber: weekNumberFromId(input.weekId),
+    weekNumber:       weekNumberFromId(input.weekId),
     recentDishTitles,
     recentCuisines,
+    onboardingText:   input.onboardingText, // passes through to prompt
   };
 
   let lastError: Error | null = null;
@@ -117,6 +118,8 @@ export async function generateWeek(input: GenerationInput, uid: string) {
 }
 
 // ── Single-slot regeneration (for swap) ─────────────────────────────────
+// Uses SlotSchema directly — avoids the __unchanged__ placeholder hack that
+// caused AI_TypeValidationError (cookMinutes:0 violates min(5) etc.)
 export async function regenerateSlot(
   uid: string,
   weekId: string,
@@ -126,10 +129,9 @@ export async function regenerateSlot(
   preferredCuisines: string[],
   dislikedTitle?: string,
 ) {
-  const { titles: recentTitles, cuisines: recentCuisines } =
-    await fetchRecentDishTitles(uid, weekId);
+  const { titles: recentTitles } = await fetchRecentDishTitles(uid, weekId);
 
-  // Also pull the current week's plan to avoid duplicating any slot in the same week
+  // Pull current week's dish titles to avoid intra-week repeats
   const planDoc = await adminDb.doc(`users/${uid}/plans/${weekId}`).get();
   const currentPlanTitles: string[] = [];
   if (planDoc.exists) {
@@ -148,24 +150,33 @@ export async function regenerateSlot(
     ...(dislikedTitle ? [dislikedTitle] : []),
   ])];
 
+  const memberSummary = family.map(m => ({
+    memberId: m.memberId,
+    name: m.name,
+    archetype: m.archetype,
+    diet: m.hardConstraints.diet,
+    allergies: m.hardConstraints.allergies,
+  }));
+
+  // Generate a single Slot — no WeekSchema, no placeholder issues
   const { object } = await generateObject({
     model:  getModel(),
-    schema: WeekSchema,
+    schema: SlotSchema,
     system: WEEKLY_SYSTEM_PROMPT,
     prompt: `
-Regenerate ONLY the ${meal} slot for ${dayLabel} of week ${weekId}.
-Return a full WeekSchema but only make this one slot meaningful;
-keep all other slot baseDish.title as "__unchanged__" so the caller can filter.
+Generate ONE ${meal} slot for ${dayLabel} of week ${weekId}.
+This is a single meal replacement — return only the slot JSON.
 
 DO NOT use any of these dish titles: ${avoidTitles.join(', ')}
 
-Family members: ${JSON.stringify(family, null, 2)}
+Family (${family.length} member${family.length > 1 ? 's' : ''}):
+${JSON.stringify(memberSummary, null, 2)}
+
+Include perPerson entries for ALL ${family.length} member(s) using their exact memberIds.
 Preferred cuisines: ${preferredCuisines.join(', ')}
     `.trim(),
     temperature: 0.9,
   });
 
-  // Extract just the regenerated slot
-  const targetDay = object.days.find(d => d.dayLabel === dayLabel);
-  return targetDay?.slots?.[meal] ?? null;
+  return object; // Already a Slot — no extraction needed
 }

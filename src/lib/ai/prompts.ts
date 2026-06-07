@@ -106,6 +106,7 @@ export function buildWeeklyPrompt(input: GenerationInput): string {
     weekNumber,
     recentDishTitles,
     recentCuisines,
+    onboardingText,
   } = input;
 
   const cuisineRotation = buildCuisineRotation(
@@ -152,6 +153,9 @@ export function buildWeeklyPrompt(input: GenerationInput): string {
     : '\nNo dish history — this may be the first generation.';
 
   const weekStart = weekIdToStartDate(weekId);
+  const onboardingBlock = onboardingText
+    ? `\n\n## Original household description (use for nuance and context)\n"${onboardingText}"`
+    : '';
 
   return `
 Generate the weekly meal plan for week ${weekId} (starting ${weekStart}).
@@ -176,6 +180,7 @@ ${busyBlock}
 ## Budget
 ${budgetNote}
 ${historyBlock}
+${onboardingBlock}
 
 ## Output
 Return a single JSON object matching the WeekSchema exactly.
@@ -251,4 +256,18 @@ export function nextWeekId(): string {
 
 export function weekNumberFromId(weekId: string): number {
   return parseInt(weekId.split('-W')[1], 10);
+}
+
+/**
+ * Formats a weekId as a human-readable date range.
+ * e.g. "2026-W24" → "Jun 14 – Jun 20, 2026"
+ */
+export function formatWeekDisplay(weekId: string): string {
+  const startStr  = weekIdToStartDate(weekId);
+  const start     = new Date(startStr + 'T00:00:00');
+  const end       = new Date(start);
+  end.setDate(start.getDate() + 6);
+  const mo: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
+  const full: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' };
+  return `${start.toLocaleDateString('en-US', mo)} – ${end.toLocaleDateString('en-US', full)}`;
 }

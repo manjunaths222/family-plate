@@ -49,11 +49,12 @@ export async function POST(request: Request) {
   }
 
   const family = familySnap.docs.map(d => d.data() as FamilyMember);
-  const settings = (userSnap.data()?.settings ?? {}) as Partial<UserSettings>;
+  const userData = userSnap.data() ?? {};
+  const settings = (userData.settings ?? {}) as Partial<UserSettings>;
 
   const input = {
     weekId:            body.weekId,
-    weekNumber:        0, // will be set inside generateWeek
+    weekNumber:        0, // set inside generateWeek
     family,
     preferredCuisines: settings.defaultCuisines ?? [],
     pantry:            body.pantry ?? [],
@@ -61,6 +62,7 @@ export async function POST(request: Request) {
     budget:            settings.budget ?? 'mid',
     recentDishTitles:  [],
     recentCuisines:    [],
+    onboardingText:    (userData.onboardingText as string | undefined) ?? '',
   };
 
   try {

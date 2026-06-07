@@ -67,6 +67,7 @@ export interface GenerationInput {
   budget:            Budget;
   recentDishTitles:  string[];       // from last 4 weeks — do not repeat
   recentCuisines:    string[];       // cuisines used recently
+  onboardingText?:   string;         // original free-text household description
 }
 
 // ── Grocery ──────────────────────────────────────────────────────────────────

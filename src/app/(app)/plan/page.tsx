@@ -1,12 +1,4 @@
 'use client';
-/**
- * /plan — the main weekly plan view.
- *
- * Flow:
- *   1. Check if a plan exists for next week (or current week).
- *   2. If not, offer to generate one.
- *   3. Show 7 DayCards, a Lock button, and a cooking animation while generating.
- */
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -17,7 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useFamily } from '@/hooks/useFamily';
 import { useWeekPlan } from '@/hooks/useWeekPlan';
 import { DayCard } from '@/components/plan/DayCard';
-import { nextWeekId, currentWeekId } from '@/lib/ai/prompts';
+import { nextWeekId, currentWeekId, formatWeekDisplay } from '@/lib/ai/prompts';
 import toast from 'react-hot-toast';
 
 export default function PlanPage() {
@@ -25,37 +17,31 @@ export default function PlanPage() {
   const { user, idToken }   = useAuth();
   const { family, loading: familyLoading } = useFamily();
 
-  // Show next week on Fri/Sat/Sun, otherwise current week
   const today     = new Date();
-  const dayOfWeek = today.getDay(); // 0=Sun, 5=Fri, 6=Sat
+  const dayOfWeek = today.getDay();
   const showWeekId = (dayOfWeek === 5 || dayOfWeek === 6 || dayOfWeek === 0)
-    ? nextWeekId()
-    : currentWeekId();
+    ? nextWeekId() : currentWeekId();
 
-  const [weekId, setWeekId] = useState(showWeekId);
+  const [weekId, setWeekId]           = useState(showWeekId);
   const { plan, loading: planLoading } = useWeekPlan(weekId);
 
-  const [generating, setGenerating]   = useState(false);
-  const [swapping,   setSwapping]     = useState<string | null>(null); // "Monday_dinner"
-  const [locking,    setLocking]      = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [swapping,   setSwapping]   = useState<string | null>(null);
+  const [locking,    setLocking]    = useState(false);
 
-  // Redirect to onboarding if no family profiles
   useEffect(() => {
-    if (!familyLoading && family.length === 0) {
-      router.push('/onboarding');
-    }
+    if (!familyLoading && family.length === 0) router.push('/onboarding');
   }, [family, familyLoading, router]);
 
-  // ── Generate ────────────────────────────────────────────────────────
   async function handleGenerate() {
     if (!user) return;
     setGenerating(true);
     try {
       const token = await idToken();
-      const res   = await fetch('/api/generate', {
-        method:  'POST',
+      const res = await fetch('/api/generate', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body:    JSON.stringify({ weekId }),
+        body: JSON.stringify({ weekId }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -68,17 +54,16 @@ export default function PlanPage() {
     }
   }
 
-  // ── Swap ─────────────────────────────────────────────────────────────
   async function handleSwap(dayLabel: string, meal: string, dislikedTitle: string) {
     if (!user) return;
     const key = `${dayLabel}_${meal}`;
     setSwapping(key);
     try {
       const token = await idToken();
-      const res   = await fetch('/api/swap', {
-        method:  'POST',
+      const res = await fetch('/api/swap', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body:    JSON.stringify({ weekId, dayLabel, meal, dislikedTitle }),
+        body: JSON.stringify({ weekId, dayLabel, meal, dislikedTitle }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -91,16 +76,15 @@ export default function PlanPage() {
     }
   }
 
-  // ── Lock ─────────────────────────────────────────────────────────────
   async function handleLock() {
     if (!user || !plan) return;
     setLocking(true);
     try {
       await updateDoc(doc(db, `users/${user.uid}/plans/${weekId}`), {
-        status:   'locked',
+        status: 'locked',
         lockedAt: new Date().toISOString(),
       });
-      toast.success('Plan locked! Your grocery list is ready.');
+      toast.success('Plan locked! Grocery list is ready.');
       router.push('/grocery');
     } catch (err) {
       toast.error('Could not lock plan.');
@@ -112,8 +96,8 @@ export default function PlanPage() {
 
   const isLoading = familyLoading || planLoading;
   const isLocked  = plan?.status === 'locked';
+  const weekLabel = formatWeekDisplay(weekId);
 
-  // ── Loading skeleton ─────────────────────────────────────────────────
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -124,7 +108,6 @@ export default function PlanPage() {
     );
   }
 
-  // ── Cooking animation ─────────────────────────────────────────────────
   if (generating) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-6">
@@ -132,17 +115,14 @@ export default function PlanPage() {
           animate={{ rotate: 360 }}
           transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}
           className="text-6xl"
-        >
-          🍳
-        </motion.div>
+        >🍳</motion.div>
         <div className="text-center">
           <h2 className="text-xl font-semibold text-on-surface mb-1">Cooking up your week…</h2>
           <p className="text-on-surface-muted text-sm">
-            Building 21 meals tailored to everyone's goals.
-            <br />This usually takes 20–40 seconds.
+            Building 21 meals tailored to everyone's goals.<br />
+            This usually takes 20–40 seconds.
           </p>
         </div>
-        {/* Staggered dots */}
         <div className="flex gap-2">
           {[0, 1, 2].map(i => (
             <motion.div
@@ -157,14 +137,11 @@ export default function PlanPage() {
     );
   }
 
-  // ── No plan yet ───────────────────────────────────────────────────────
   if (!plan) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
         <div className="text-5xl">📋</div>
-        <h2 className="text-xl font-semibold text-on-surface">
-          Your week for {weekId} isn't ready yet
-        </h2>
+        <h2 className="text-xl font-semibold text-on-surface">{weekLabel}</h2>
         <p className="text-on-surface-muted text-sm max-w-xs">
           The plan auto-generates every Friday. Or tap below to generate now.
         </p>
@@ -178,18 +155,16 @@ export default function PlanPage() {
     );
   }
 
-  // ── Plan view ─────────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-on-surface">Week {weekId}</h1>
+          <h1 className="text-xl font-bold text-on-surface">{weekLabel}</h1>
           <p className="text-sm text-on-surface-muted">
             {isLocked ? '🔒 Plan locked' : '✏️ Review & lock before Saturday'}
           </p>
         </div>
-
         <div className="flex gap-2">
           {!isLocked && (
             <button
@@ -222,7 +197,6 @@ export default function PlanPage() {
         </div>
       </div>
 
-      {/* Day cards */}
       <AnimatePresence>
         {plan.days.map((day, i) => (
           <DayCard
@@ -236,7 +210,6 @@ export default function PlanPage() {
         ))}
       </AnimatePresence>
 
-      {/* Swap spinner overlay */}
       {swapping && (
         <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50">
           <div className="bg-surface-raised rounded-2xl p-6 text-center shadow-card">
