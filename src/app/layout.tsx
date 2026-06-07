@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
@@ -8,10 +8,14 @@ import { Toaster } from 'react-hot-toast';
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
 export const metadata: Metadata = {
-  title:       'FamilyPlate — One pot. Everyone\'s plate.',
-  description: 'A weekly family meal planner that cooks one dish but satisfies everyone\'s goals.',
+  title:       "FamilyPlate — One pot. Everyone's plate.",
+  description: "A weekly family meal planner that cooks one dish but satisfies everyone's goals.",
   manifest:    '/manifest.json',
-  themeColor:  '#c2674a',
+};
+
+// themeColor must live in viewport (not metadata) since Next.js 13.4
+export const viewport: Viewport = {
+  themeColor: '#c2674a',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
