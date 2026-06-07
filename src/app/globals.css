@@ -1,0 +1,113 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Design token defaults (Warm Kitchen theme) ─────────────────────────────
+   All color values are set here. Themes below override them.
+   Transitions on the root element make theme-switches crossfade. */
+:root {
+  --color-brand:           #c2674a;
+  --color-brand-light:     #e8a48c;
+  --color-brand-dark:      #8b3d26;
+  --color-accent:          #e8a444;
+  --color-surface:         #fdf6ee;
+  --color-surface-raised:  #fff9f4;
+  --color-on-surface:      #2c1a0e;
+  --color-on-surface-muted:#7a5c44;
+  --color-border:          #e8d5c0;
+
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+
+  /* Smooth theme transitions */
+  transition:
+    background-color 0.35s ease,
+    color 0.35s ease;
+}
+
+/* ── Fresh Market ────────────────────────────────────────────────────────── */
+[data-theme="fresh-market"] {
+  --color-brand:           #2e7d32;
+  --color-brand-light:     #81c784;
+  --color-brand-dark:      #1b5e20;
+  --color-accent:          #f9a825;
+  --color-surface:         #f1f8e9;
+  --color-surface-raised:  #f9fbe7;
+  --color-on-surface:      #1b2e1b;
+  --color-on-surface-muted:#4a6741;
+  --color-border:          #c5e1a5;
+}
+
+/* ── Midnight Pantry ─────────────────────────────────────────────────────── */
+[data-theme="midnight-pantry"] {
+  --color-brand:           #7986cb;
+  --color-brand-light:     #aab6fb;
+  --color-brand-dark:      #3949ab;
+  --color-accent:          #ffb74d;
+  --color-surface:         #121212;
+  --color-surface-raised:  #1e1e1e;
+  --color-on-surface:      #e8eaf6;
+  --color-on-surface-muted:#9fa8da;
+  --color-border:          #2c2c3a;
+}
+
+/* ── Spice Route ─────────────────────────────────────────────────────────── */
+[data-theme="spice-route"] {
+  --color-brand:           #a52829;
+  --color-brand-light:     #d4706e;
+  --color-brand-dark:      #6d1414;
+  --color-accent:          #e8a000;
+  --color-surface:         #faf3e0;
+  --color-surface-raised:  #fff8f0;
+  --color-on-surface:      #1a0a00;
+  --color-on-surface-muted:#7a4a20;
+  --color-border:          #e0c89a;
+}
+
+/* ── Base styles ──────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background-color: var(--color-surface);
+  color:            var(--color-on-surface);
+  font-family:      var(--font-sans);
+  min-height:       100dvh;
+  transition:
+    background-color 0.35s ease,
+    color 0.35s ease;
+}
+
+/* All color-bearing elements inherit the transition so theme switches are smooth */
+*, *::before, *::after {
+  transition:
+    background-color 0.35s ease,
+    border-color     0.35s ease,
+    color            0.1s ease;
+}
+
+/* Animated elements should only animate transform/opacity (perf) */
+.motion-safe {
+  transition: none !important;
+  will-change: transform, opacity;
+}
+
+/* Accessible focus ring */
+:focus-visible {
+  outline: 3px solid var(--color-brand);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* ── Reduced-motion overrides ─────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration:   0.01ms !important;
+    transition-duration:  0.01ms !important;
+  }
+}
